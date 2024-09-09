@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internship Report Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .pulse {
+            animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-indigo-100 to-purple-100 min-h-screen">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-12">
+            <h1 class="text-5xl font-bold text-indigo-800 mb-2">Internship Report Generator</h1>
+        </header>
+
+        <div class="bg-white shadow-2xl rounded-3xl p-8 max-w-4xl mx-auto">
+            <form id="reportForm" class="space-y-8">
+                {{ form.hidden_tag() }}
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- API Key input -->
+                    <div class="col-span-full">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1" for="api_key">
+                            Google AI API Key
+                        </label>
+                        <input type="password" id="api_key" name="api_key"
+                            class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition duration-200"
+                            required>
+                    </div>
+
+                    <!-- Language selection -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ form.language.id }}">
+                            Language
+                        </label>
+                        {{ form.language(class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm
+                        focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition
+                        duration-200") }}
+                    </div>
+
+                    <!-- Other form fields -->
+                    {% for field in [form.intern_name, form.start_date, form.end_date, form.company_name,
+                    form.intern_role] %}
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ field.id }}">
+                            {{ field.label.text }}
+                        </label>
+                        {{ field(class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500
+                        focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition duration-200", type="text" if
+                        field.type == 'DateField' else None) }}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% for field in [form.project_overview, form.tools_technologies, form.key_achievements] %}
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" for="{{ field.id }}">
+                        {{ field.label.text }}
+                    </label>
+                    {{ field(class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500
+                    focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition duration-200", rows="4") }}
+                </div>
+                {% endfor %}
+
+                <!-- Submit button -->
+                <div>
+                    <button id="generateBtn"
+                        class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        type="submit">
+                        Generate Report
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Loading section -->
+        <div id="loadingSection" class="hidden mt-12 bg-white shadow-2xl rounded-3xl p-8 max-w-4xl mx-auto">
+            <div class="flex flex-col items-center justify-center">
+                <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
+                <p id="loadingMessage" class="text-xl text-indigo-700 font-semibold pulse">Initializing report
+                    generation...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('reportForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const formObject = {};
+            formData.forEach((value, key) => { formObject[key] = value; });
+
+            document.getElementById('loadingSection').classList.remove('hidden');
+            document.getElementById('generateBtn').disabled = true;
+            document.getElementById('generateBtn').classList.add('opacity-50', 'cursor-not-allowed');
+
+            try {
+                const response = await fetch('/generate-report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formObject),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n\n');
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            try {
+                                const jsonData = JSON.parse(data);
+                                if (jsonData.success !== undefined) {
+                                    document.getElementById('loadingSection').classList.add('hidden');
+                                    if (jsonData.success) {
+                                        window.latexContent = jsonData.latex;
+                                        downloadLatex(formObject.company_name);
+                                    } else {
+                                        showAlert('Failed to generate report. Please try again.', 'error');
+                                    }
+                                }
+                            } catch (e) {
+                                document.getElementById('loadingMessage').textContent = data;
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('loadingSection').classList.add('hidden');
+                showAlert('An error occurred. Please try again.', 'error');
+            } finally {
+                document.getElementById('generateBtn').disabled = false;
+                document.getElementById('generateBtn').classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        });
+
+        async function downloadLatex(companyName) {
+            try {
+                const response = await fetch('/download-latex', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        latex: window.latexContent,
+                        company_name: companyName
+                    }),
+                });
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `internship_report_${companyName}.tex`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showAlert('Report generated successfully!', 'success');
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('An error occurred while downloading the LaTeX file. Please try again.', 'error');
+            }
+        }
+
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `fixed top-4 right-4 p-4 rounded-lg text-white ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} shadow-lg transition-opacity duration-500`;
+            alertDiv.textContent = message;
+            document.body.appendChild(alertDiv);
+            setTimeout(() => {
+                alertDiv.style.opacity = '0';
+                setTimeout(() => alertDiv.remove(), 500);
+            }, 3000);
+        }
+    </script>
+</body>
+
+</html>
