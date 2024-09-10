@@ -9,7 +9,7 @@ import json
 
 
 # Initialize the Gemini model
-model = genai.GenerativeModel('gemini-1.5-pro')
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
